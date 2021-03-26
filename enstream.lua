@@ -54,15 +54,18 @@ local function onRx(stream)
   if code == 0 then
     if comdata == 0 then
       -- We were connected to and received the key init.  Wrap with our keymod and send back
+      stream.keymod = generateKey()
       local keyData = applyKey(packetData, stream.keymod)
       stream:rawPacket(1, nil, keyData)
     elseif comdata == 1 then
       -- We got the double-wrapped key; strip our mod and send back
       local keyData = applyKey(packetData, stream.keymod)
+      stream.keymod = nil
       stream:rawPacket(2, nil, keyData)
       strea.ready = true
     elseif comdata == 2 then -- key transferred.
       stream.key = applyKey(packetData, stream.keymod)
+      stream.keymod = nil
       stream.ready = true
     end
   elseif code == 1 then
@@ -130,12 +133,12 @@ function enstream:new(mStream) -- Wraps the minitel stream in an encryption laye
   local es = {inner=mStream}
   setmetatable(es, self)
   self.__index = self
-  es.keymod = generateKey()
   es.pollEvent = event.timer(0.1, function() pollStream(es) end, math.huge)
   return es
 end
 
 function enstream:connect()
+  self.keymod = generateKey()
   self.key = generateKey()
   local scrambled = applyKey(self.key, self.keymod)  
   self:rawPacket(0, nil, scrambled)
